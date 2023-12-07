@@ -193,13 +193,13 @@ screen durak_stats():
     layer "master"
     zorder 5
     style_prefix "nou"
-    $ nou_ma_dir = store.config.gamedir.replace("\\", "/") + "/mod_assets/games/nou/"
+
     add MASFilterSwitch(
-        nou_ma_dir + "note.png"
+        "mod_assets/games/nou/note.png"
     ) pos (5, 120) anchor (0, 0) at nou_note_rotate_left
 
     add MASFilterSwitch(
-        nou_ma_dir + "pen.png"
+        "mod_assets/games/nou/pen.png"
     ) pos (130, 420) anchor (0.5, 0.5) at nou_pen_rotate_right
 
     text _("Our score!") pos (87, 110) anchor (0, 0.5) at nou_note_rotate_left
@@ -209,9 +209,6 @@ screen durak_stats():
         text _("Draws: " + str(store.persistent._durak_wins["Draws"])) pos (96, 298) anchor (0, 0.5) at nou_note_rotate_left
     else:
         text _("[player]: " + str(store.persistent._durak_wins["Player"])) pos (96, 298) anchor (0, 0.5) at nou_note_rotate_left
-
-init 500 python in durak:
-    Durak.load_sfx()
 
 init 5 python in durak:
     import random
@@ -1011,12 +1008,8 @@ init 5 python in durak:
             monika_sorted_cards = self.sort_cards(self.monika.hand)
             player_draws = False
             while self.turn_in_progress:
-                #player draws
-                if not monika_sorted_cards and player_draws:
-                    self.draw(self.player)
-                    break
-                #find card to use
                 renpy.pause(renpy.random.uniform(self.MONIKA_THINK_TIME_MIN, self.MONIKA_THINK_TIME_MAX), hard=True)
+                #find card to use
                 card_to_really_use = None
                 cards_in_discardpiles_values = []
                 for a_discardpile in self.discardpiles:
@@ -1151,6 +1144,8 @@ init 5 python in durak:
                                             if len(self.drawpile) <= max(0, 6-len(monika_sorted_cards)) and card_to_really_use.suit != self.trump_suit:
                                                 self.player_couldnt_beat_append(card_to_really_use, True)
                                             self.player.made_a_move = True
+                                            if not self.drawpile and not monika_sorted_cards:
+                                                self.draw(self.player)
                                         else:
                                             self.help(card_to_really_use)
                                 elif event.type == "unhover":
@@ -1208,58 +1203,17 @@ init 5 python in durak:
             else:
                 renpy.say(m, quip, interact=interact)
 
-        @classmethod
-        def load_sfx(cls):
-            nou_ma_dir = os.path.join(config.gamedir, "mod_assets/games/nou/sfx")
-            nou_sfx = os.listdir(nou_ma_dir)
-
-            cls.SFX_SHUFFLE = []
-            cls.SFX_MOVE = []
-            cls.SFX_DRAW = []
-            cls.SFX_PLAY = []
-
-            name_to_sfx_list_map = {
-                "shuffle": cls.SFX_SHUFFLE,
-                "move": cls.SFX_MOVE,
-                "slide": cls.SFX_DRAW,
-                "place": cls.SFX_PLAY,
-                "shove": cls.SFX_PLAY
-            }
-
-            for f in nou_sfx:
-                if not f.endswith(cls.SFX_EXT):
-                    continue
-
-                name, undscr, rest = f.partition("_")
-                sfx_list = name_to_sfx_list_map.get(name, None)
-                if sfx_list is None:
-                    continue
-
-                f = os.path.join(nou_ma_dir, f).replace("\\", "/")
-                sfx_list.append(f)
-
-        @staticmethod
-        def play_sfx(sfx_files):
-            if not sfx_files:
-                return
-            sfx_file = random.choice(sfx_files)
-            renpy.play(sfx_file, channel="sound")
-
-        @classmethod
         def play_shuffle_sfx(cls):
-            cls.play_sfx(cls.SFX_SHUFFLE)
+            store.mas_nou.NOU._play_shuffle_sfx()
 
-        @classmethod
         def play_move_sfx(cls):
-            cls.play_sfx(cls.SFX_MOVE)
+            store.mas_nou.NOU._play_move_sfx()
 
-        @classmethod
         def play_draw_sfx(cls):
-            cls.play_sfx(cls.SFX_DRAW)
+            store.mas_nou.NOU._play_draw_sfx()
 
-        @classmethod
         def play_play_sfx(cls):
-            cls.play_sfx(cls.SFX_PLAY)
+            store.mas_nou.NOU._play_play_sfx()
 
     class DurakPlayer(object):
         def __init__(self):

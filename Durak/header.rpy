@@ -4,7 +4,7 @@ init -990 python:
         author="N3xtery",
         name="Durak",
         description="Play the Durak card game with your Monika!",
-        version="1.0.0",
+        version="1.0.1",
         dependencies={},
         settings_pane=""
     )
