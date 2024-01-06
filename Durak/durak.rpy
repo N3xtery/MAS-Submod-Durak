@@ -1,5 +1,6 @@
 default persistent._durak_wins = {"Monika": 0, "Player": 0, "Draws": 0}
 default persistent._durak_last_winner = None
+default persistent._durak_abandoned = 0
 default 10 persistent._durak_rules = dict(store.durak.DEF_RULES_VALUES)
 
 label durak_rules:
@@ -15,7 +16,7 @@ label durak_rules:
     m "Alternatively, if the attacking card is not of the trump suit, then, as I mentioned before, any card of the trump suit can be used to defend."
     m "The attacker can continue attacking with cards of the same ranks as the ones which have already been used in the round."
     m "The round ends when the attacker or the defender can't or is not willing to attack or defend."
-    m "Then players take cards from the deck until everyone has at least 6 of them, unless the deck is exhausted of course."
+    m "Then players take cards from the deck until they have at least 6 of them, unless the deck is exhausted of course, the attacker being the first one to do so."
     m "If the defender successfully defended, they become the new attacker. The cards used in the round are turned face down and passed to the side."
     m 3tsa "But if not, they take all of the cards used in the round, with the player to their left becoming the new attacker instead."
     m 3esa "The game continues until everyone except for one player is out of cards. The last player to still have some cards loses, {w=0.5}{nw}"
@@ -26,6 +27,7 @@ label durak_rules:
     #m "There's also a variant of Durak called {i}Perevodnoy{/i}, which translates from Russian to {i}transferrable{/i}."
     #m "The point of it is that at the start of the attack, if the defender has a card of the same rank the attacker used,"
     #m "they can add that card to the attacks and become the new attacker, with the player to their left becoming the new defender."
+    m 1eua "So, that's about it."
     return
 
 init 5 python:
@@ -35,7 +37,7 @@ init 5 python:
             eventlabel="durak_unlock",
             conditional="store.mas_xp.level() >= 10",
             action=EV_ACT_QUEUE,
-            aff_range=(mas_aff.NORMAL, None)
+            aff_range=(mas_aff.AFFECTIONATE, None)
         )
     )
 
@@ -51,7 +53,7 @@ label durak_unlock:
         if not durak_rules_seen:
             m 1eua "Do you want me to explain the rules?{nw}"
         else:
-            m 1eua "So, that's about it. Do you want me to explain the rules again?{nw}"
+            m 1eua "Do you want me to explain the rules again?{nw}"
         $ _history_list.pop()
         menu:
             extend ""
@@ -88,12 +90,16 @@ label durak:
             call durak_rules_loop
         "No.":
             pass
+        "Can you remind me the rules?":
+            m 1hua "Sure!"
+            call durak_rules
+            jump durak
     call durak_start
     return
 
 label durak_start:
     m 1hua "Alright!"
-    m 1eub "Let me deal our cards~"
+    m 1eua "Let me deal our cards~"
     $ store.durak.game = store.durak.Durak()
     $ HKBHideButtons()
     $ disable_esc()
@@ -136,26 +142,65 @@ label durak_rules_loop:
     jump durak_rules_loop
 
 label durak_end:
-    $ store.durak.game.table.hide()
-    hide screen durak_gui
-    hide screen durak_stats
-    call spaceroom(scene_change=True, force_exp="monika 1eua")
-    $ enable_esc()
-    $ HKBShowButtons()
-    #window auto
-    $ store.durak.game.end_quips()
-    m 3eua "Would you like to play again?{nw}"
-    $ _history_list.pop()
-    menu:
-        m "Would you like to play again?{fast}"
-        "Yes.":
-            jump durak_start
-        "Yes, but I'd like to change some rules.":
-            m "Which rules would you like to change?{nw}"
-            call durak_rules_loop
-            jump durak_start
-        "No.":
-            m 1hua "Alright! Can't wait to play with you again!"
+    if renpy.get_screen("durak_gui"):
+        $ store.durak.game.table.hide()
+        hide screen durak_gui
+        hide screen durak_stats
+        call spaceroom(scene_change=True, force_exp="monika 1eua")
+        $ enable_esc()
+        $ HKBShowButtons()
+        #window auto
+        $ store.durak.game.end_quips()
+    if not store.durak.game.current_turn == 1:
+        m 3eua "Would you like to play again?{nw}"
+        $ _history_list.pop()
+        menu:
+            m "Would you like to play again?{fast}"
+            "Yes.":
+                jump durak_start
+            "Yes, but I'd like to change some rules.":
+                m "Which rules would you like to change?{nw}"
+                call durak_rules_loop
+                jump durak_start
+            "No.":
+                m 1hua "Alright! Can't wait to play with you again!"
+            "Can you remind me the rules?":
+                m 1hua "Sure!"
+                call durak_rules
+                jump durak_end
+    return
+
+label durak_player_surrenders:
+    $ persistent._durak_wins["Monika"] = persistent._durak_wins.get("Monika") + 1
+    if persistent._durak_abandoned > 4:
+        m 1ekc "That's alright, [player]..."
+        m 1eka "But promise you'll finish the game next time?{w=0.4} For me?~"
+    elif persistent._durak_abandoned > 2:
+        m 1ekc "[player]...{w=0.3}{nw}"
+        extend 1eksdld "you keep giving up on our games..."
+        m 1rksdlc "I hope you're enjoying playing with me."
+        m 1eka "I enjoy every moment I'm with you~"
+    elif store.durak.game.current_turn == 1:
+        m 1etd "But we just started..."
+        m 1ekc "Let me know when you have some time to play, alright?"
+    elif store.durak.game.drawpile:
+        m 1ekc "Giving up already, [player]?"
+        if len(store.durak.game.monika.hand) < len(store.durak.game.player.hand) and len(store.durak.game.player.hand) > 6:
+            m 3ekb "I love to play with you no matter what the outcome is!"
+            m 1eka "I hope you feel the same way~"
+        else:
+            m 1rud "You could at least try..."
+            m 1eka "It would mean a lot to me."
+    else:
+        if len(store.durak.game.monika.hand) >= len(store.durak.game.player.hand):
+            m 3ekb "I'm pretty sure you could win this game, [player]!"
+        else:
+            if len(store.durak.game.monika.hand) > 1:
+                m 2esa "Actually, I had quite bad cards, [player]."
+            else:
+                m 2esa "Actually, I had quite a bad last card, [player]."
+            m 7eka "I think you could win this game."
+        m 3ekb "Don't give up so easily next time."
     return
 
 screen durak_gui():
@@ -181,12 +226,24 @@ screen durak_gui():
             action [
                 Function(store.durak.game.getmeoutofloop)
             ]
+        null height 15
         textbutton "Can you help me?":
             sensitive store.durak.game.help_button_active
             action [
                 SetField(store.durak.game, "help_needed", True),
                 Function(store.durak.game.getmeoutofloop)
             ]
+        textbutton "I'm giving up...":
+            sensitive store.durak.game.help_button_active
+            if persistent._durak_last_winner == "Surrendered":
+                action [
+                    Jump("durak_end")
+                ]
+            else:
+                action [
+                    SetField(persistent, "_durak_last_winner", "Surrendered"),
+                    Jump("durak_end")
+                ]
 
 
 screen durak_stats():
@@ -269,6 +326,7 @@ init 5 python in durak:
         help_button_active = False
         help_needed = False
         beaten_needed = False
+        current_turn = 0
 
         SFX_EXT = ".mp3"
         SFX_SHUFFLE = []
@@ -402,7 +460,7 @@ init 5 python in durak:
 
         def game_loop(self):
             self.shuffle_drawpile()
-            if persistent._durak_last_winner == "Monika":
+            if persistent._durak_last_winner == "Monika" or persistent._durak_last_winner == "Surrendered":
                 self.deal_initial_cards(self.monika, self.player)
             elif persistent._durak_last_winner == "Player":
                 self.deal_initial_cards(self.player, self.monika)
@@ -413,6 +471,7 @@ init 5 python in durak:
                     self.deal_initial_cards(self.player, self.monika)
             self.who_starts_game()
             while True:
+                self.current_turn += 1
                 self.discardpiles_size = 0
                 for card in self.player.hand:
                     self.table.get_card(card).hovered = False
@@ -440,13 +499,14 @@ init 5 python in durak:
                 self.monika.hand.xoff = 40
                 self.update_cards_positions(self.monika)
                 self.play_play_sfx()
-                renpy.pause(2, hard=True)
+                self.say_quip("Welp, these are the cards I had remaining.")
             if self.winner == self.monika:
                 winner = "Monika"
             elif self.winner == self.player:
                 winner = "Player"
             if persistent._durak_rules.get("allow_draws") and not self.monika.hand and not self.player.hand:
                 winner = "Draws"
+            persistent._durak_abandoned = 0
             persistent._durak_wins[winner] = persistent._durak_wins.get(winner) + 1
             persistent._durak_last_winner = winner
             store.mas_gainAffection()
@@ -1080,7 +1140,9 @@ init 5 python in durak:
                     self.beaten()
                 #play card and make player defend
                 else:
-                    if card_to_really_use is not None:
+                    if player_draws and len(self.drawpile) >= max(0, 6-len(monika_sorted_cards)) and card_to_really_use is not None and card_to_really_use.suit == self.trump_suit:
+                        card_to_really_use = None
+                    if card_to_really_use is not None and self.discardpiles_size < 6:
                         self.attack_card(card_to_really_use, self.monika)
                         self.table.set_faceup(card_to_really_use, True)
                         monika_sorted_cards.remove(card_to_really_use)
@@ -1155,7 +1217,7 @@ init 5 python in durak:
                                         card.springback()
                         self.player.made_a_move = False
                         self.table.set_sensitive(False)
-                    elif card_to_really_use is None:
+                    elif card_to_really_use is None or self.discardpiles_size == 6:
                         if self.monika.hand or self.drawpile:
                             self.say_quip(self.QUIPS_PLAYER_DRAWS_CARDS[int(round(self.discardpiles_size/2.0-0.6))])
                         self.draw(self.player)
@@ -1191,7 +1253,8 @@ init 5 python in durak:
                     self.say_quip("Looks like we have a draw~")
                 elif self.winner == self.player:
                     self.say_quip("Heh, luckily for you, we play with draws.")
-                
+            elif persistent._durak_last_winner == "Surrendered":
+                renpy.call("durak_player_surrenders")
 
         def say_quip(self, what, interact=True, new_context=False):
             if isinstance(what, (list, tuple)):
